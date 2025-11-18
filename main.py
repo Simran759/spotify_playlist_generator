@@ -8,6 +8,7 @@ if __name__ == '__main__':
     print(separator)
     print(' SPOTIFY PLAYLIST GENERATOR '.center(100, '-'))
     print(separator)
+    
 
     while True:
         prompt = input('Playlist Prompt: ')
