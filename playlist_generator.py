@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 
 import keyring 
 import argparse
@@ -6,13 +6,11 @@ import spotipy
 import subprocess
 import webbrowser
 import numpy as np
-from scipy.spatial import distance # For comparing vectors
+from scipy.spatial import distance 
 
-# --- NEW ---
-# Import the Deep Learning model for NLP
+
 from sentence_transformers import SentenceTransformer
 
-# Parsing arguments for command line calls
 parser = argparse.ArgumentParser(description='Simple command line song utility')
 parser.add_argument("-p", type=str, help='The prompt to describe the playlist')
 parser.add_argument("-l", type=int, default=10, help='The length of the playlist')
@@ -40,9 +38,7 @@ class SpotifyPlaylist:
         self.current_user = None
         self.playlist = None
         
-        # --- NEW ---
-        # Load the pre-trained NLP model when the class is created.
-        # This will download the model (about 200-300MB) the first time you run it.
+       
         print("Loading deep learning NLP model (this may take a moment)...")
         # self.nlp_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.nlp_model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
@@ -50,7 +46,7 @@ class SpotifyPlaylist:
         print("Model loaded.")
 
     def __repr__(self):
-        # ... (This function is unchanged) ...
+       
         result = f'{separator}\n'
         result += f'Prompt: {self.prompt}\n'
         result += f'Length: {self.length}\n'
@@ -80,8 +76,7 @@ class SpotifyPlaylist:
         
         return result
 
-    # --- NEW ---
-    # This function REPLACES all previous generation functions.
+    
     def generate_nlp_playlist(self):
         """
         Generates a song list using an NLP model to find
@@ -89,11 +84,10 @@ class SpotifyPlaylist:
         """
         print(f"Generating vector for prompt: '{self.prompt}'")
         
-        # 1. Convert the user's text prompt into a vector "fingerprint"
-        # The .encode() method runs the deep learning model
+        
         prompt_vector = self.nlp_model.encode(self.prompt, convert_to_tensor=False)
 
-        # 2. Get a large list of candidate tracks from Spotify
+       
         print("Getting 50 candidate songs from Spotify search...")
         try:
             search_results = self.sp.search(q=self.prompt, type='track', limit=50)
@@ -105,49 +99,47 @@ class SpotifyPlaylist:
             print(f"Error searching Spotify: {e}")
             return []
 
-        # 3. Create a list of "text" for each song
+        
         candidate_texts = []
         for track in candidates:
-            # We create a "sentence" for each song
+           
             text = f"{track['artists'][0]['name']} - {track['name']}"
             candidate_texts.append(text)
 
-        # 4. Run the DL model on ALL 50 candidates at once
+        
         print("Analyzing all 50 candidates with the NLP model...")
         candidate_vectors = self.nlp_model.encode(candidate_texts, convert_to_tensor=False)
 
-        # 5. Calculate Similarity
-        # We compare the single prompt_vector to all 50 candidate_vectors
+        
         print("Calculating semantic similarity...")
         similarities = []
         for i, (track, vector) in enumerate(zip(candidates, candidate_vectors)):
-            # Calculate Cosine Similarity (1.0 is identical, -1.0 is opposite)
-            # (1 - distance) because distance.cosine returns 0.0 for identical
+           
             sim = 1 - distance.cosine(prompt_vector, vector)
             
-            # We store the similarity score and the full track object
+            
             similarities.append((sim, track))
-            # print(f"  - {candidate_texts[i]} (Similarity: {sim:.4f})") # Uncomment for debugging
+            
         
-        # 6. Sort by most similar and filter
+        
         similarities.sort(key=lambda x: x[0], reverse=True)
         
         final_tracks = []
         for sim, track in similarities:
-            # Filter out blacklisted songs/artists
+            
             if (track['name'] in self.songs_blacklist or 
                 track['artists'][0]['name'] in self.artists_blacklist):
                 continue
             
             final_tracks.append(track)
             if len(final_tracks) >= self.length:
-                break # Stop once we have enough songs
+                break 
                 
         return final_tracks
 
 
     def login_to_spotify(self):
-        # ... (This function is unchanged) ...
+        
         client_id = keyring.get_password('spotify', 'client_ID')
         client_secret = keyring.get_password('spotify', 'client_secret')
 
@@ -169,7 +161,7 @@ class SpotifyPlaylist:
         assert self.current_user is not None
 
     def main(self):
-        # ... (This function is unchanged) ...
+       
         self.login_to_spotify()
 
         all_playlists = self.sp.user_playlists(self.current_user['id'])
@@ -194,11 +186,11 @@ class SpotifyPlaylist:
         print('>> end of playlist creation')
         return
 
-    # --- UPDATED ---
+
     def fill_playlist_automatic(self):
         print("Generating NLP-based playlist...")
         
-        # Asks our new NLP function to generate the playlist contents
+        
         self.generated_tracks = self.generate_nlp_playlist()
         first_song = None
         
@@ -219,7 +211,7 @@ class SpotifyPlaylist:
             self.play_song_in_spotify(first_song)
 
     def play_song_in_spotify(self, song, start_position=0):
-        # ... (This function is unchanged) ...
+       
         try:
             devices = self.sp.devices().get('devices', [])
             if not devices:
@@ -240,20 +232,20 @@ class SpotifyPlaylist:
             print(f"Error playing song: {e}")
             webbrowser.open(self.playlist['uri'])
 
-    # --- UPDATED ---
+
     def fill_playlist_interactive(self):
         track_id = 0
         build_playlist = True
         first_song = None
 
-        # Asks our new NLP function to generate the playlist contents
+        
         self.generated_tracks = self.generate_nlp_playlist()
         
         if not self.generated_tracks:
             print("No tracks to add. Exiting.")
             return
 
-        for song in self.generated_tracks: # Loop through the sorted, full track objects
+        for song in self.generated_tracks: 
             if not build_playlist:
                 break
             
@@ -274,7 +266,7 @@ class SpotifyPlaylist:
                 print(f'Ignore {song_name} | blacklisted')
                 continue
             
-            track = self.sp.track(song['id']) # Get fresh track details if needed
+            track = self.sp.track(song['id']) 
                                 
             if not first_song:
                 first_song = song
